@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { computeDigest, formatDate, type Analysis } from "@/lib/digest";
-import type { Patient } from "@/lib/types";
+import { formatDate } from "@/lib/digest";
+import { adaptDigest } from "@/lib/digest-adapter";
+import type { Digest as ServerDigest } from "@/lib/server-digest";
 import { AnalysisBlock } from "@/components/AnalysisBlock";
 import { RedFlagBanner } from "@/components/RedFlagBanner";
 import { WearOffHistogram } from "@/components/WearOffHistogram";
@@ -12,35 +13,30 @@ import { AsrsGrid } from "@/components/AsrsGrid";
 import { Sparkline } from "@/components/Sparkline";
 import { Card, CardHead, TrendArrow } from "@/components/ui";
 
-interface DigestResponse {
-  patient: Patient;
-  analysis: Analysis | null;
-}
-
 export default function PatientDigest() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   // undefined = loading, null = not found
-  const [data, setData] = useState<DigestResponse | null | undefined>(undefined);
+  const [sd, setSd] = useState<ServerDigest | null | undefined>(undefined);
 
   useEffect(() => {
     if (!id) return;
     let live = true;
-    fetch(`/api/patients/${id}`)
+    fetch(`/api/digest/${id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => live && setData(d))
-      .catch(() => live && setData(null));
+      .then((d) => live && setSd(d))
+      .catch(() => live && setSd(null));
     return () => {
       live = false;
     };
   }, [id]);
 
-  const d = useMemo(() => (data?.patient ? computeDigest(data.patient) : null), [data]);
+  const view = useMemo(() => (sd ? adaptDigest(sd) : null), [sd]);
 
-  if (data === undefined) {
+  if (sd === undefined) {
     return <p className="text-sm text-ink-faint font-mono">Loading digest…</p>;
   }
-  if (!data || !d) {
+  if (!sd || !view) {
     return (
       <div>
         <Link href="/provider" className="text-xs text-ink-muted hover:text-ink">
@@ -51,13 +47,8 @@ export default function PatientDigest() {
     );
   }
 
-  const patient = data.patient;
-  // Override the client rule-based analysis with the cached LLM analysis (§6).
-  if (data.analysis) d.analysis = data.analysis;
-
-  const first = patient.entries[0]?.date ?? "";
-  const last = patient.entries[patient.entries.length - 1]?.date ?? "";
-  const observedItems = d.asrs.filter((a) => a.count > 0).length;
+  const h = view.header;
+  const observedItems = view.asrs.filter((a) => a.count > 0).length;
 
   return (
     <div className="space-y-8">
@@ -73,25 +64,24 @@ export default function PatientDigest() {
           All patients
         </Link>
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-2xl font-semibold text-ink tracking-tight">{patient.name}</h1>
-          <span className="text-sm text-ink-muted">{patient.age}y</span>
-          <span className="font-mono text-xs text-ink-muted">{patient.medication}</span>
+          <h1 className="text-2xl font-semibold text-ink tracking-tight">{h.name}</h1>
+          <span className="font-mono text-xs text-ink-muted">{h.medication}</span>
         </div>
         <p className="mt-1 text-xs text-ink-faint font-mono">
-          {d.entryCount} check-ins · {formatDate(first)}–{formatDate(last)} ·{" "}
-          {d.medicatedDays} medicated days
+          {h.entryCount} check-ins · {formatDate(h.first)}–{formatDate(h.last)} ·{" "}
+          {h.medicatedDays} medicated days
         </p>
       </div>
 
       {/* Safety channel — separate from everything below */}
-      <RedFlagBanner flags={d.redFlags} />
+      <RedFlagBanner flags={view.redFlags} />
 
       {/* Above the fold: drafted analysis */}
-      <AnalysisBlock analysis={d.analysis} />
+      <AnalysisBlock analysis={view.analysis} />
 
       {/* Headline deltas */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {d.deltas.map((delta) => (
+        {view.deltas.map((delta) => (
           <div
             key={delta.label}
             className="bg-surface border border-line rounded-[var(--radius-card)] px-4 py-3.5"
@@ -119,11 +109,11 @@ export default function PatientDigest() {
           title="When the medication wears off"
           aside={
             <span className="font-mono text-xs text-ink-faint">
-              {d.wearOff.reported} of {d.wearOff.ofMedicated} days reported
+              {view.wearOff.reported} of {view.wearOff.ofMedicated} days reported
             </span>
           }
         />
-        <WearOffHistogram wearOff={d.wearOff} />
+        <WearOffHistogram wearOff={view.wearOff} />
       </Card>
 
       {/* ASRS-18 draft */}
@@ -142,7 +132,7 @@ export default function PatientDigest() {
           to see the dated quotes behind it. Unobserved items are flagged to ask in-visit —
           never silently marked absent.
         </p>
-        <AsrsGrid items={d.asrs} />
+        <AsrsGrid items={view.asrs} />
       </Card>
 
       {/* Sparklines + agenda */}
@@ -150,19 +140,19 @@ export default function PatientDigest() {
         <Card className="p-6 md:col-span-2">
           <CardHead eyebrow="30-day trends" title="Sleep, mood, appetite" />
           <div className="space-y-5">
-            <TrendRow label="Sleep (hrs)" note={`${d.sparklines.sleep.at(-1)?.value ?? "—"}h last night`}>
-              <Sparkline points={d.sparklines.sleep} domain={[4, 9]} />
+            <TrendRow label="Sleep (hrs)" note={`${view.sparklines.sleep.at(-1)?.value ?? "—"}h last night`}>
+              <Sparkline points={view.sparklines.sleep} domain={[4, 9]} />
             </TrendRow>
             <TrendRow label="Mood" note="irritable ↔ positive">
               <Sparkline
-                points={d.sparklines.mood}
+                points={view.sparklines.mood}
                 domain={[-1, 1]}
                 color="var(--color-warn)"
               />
             </TrendRow>
             <TrendRow label="Appetite" note="reduced ↔ normal">
               <Sparkline
-                points={d.sparklines.appetite}
+                points={view.sparklines.appetite}
                 domain={[-1, 1]}
                 color="var(--color-ink-muted)"
               />
@@ -172,11 +162,11 @@ export default function PatientDigest() {
 
         <Card className="p-6">
           <CardHead eyebrow="From the patient" title="Visit agenda" />
-          {d.agenda.length === 0 ? (
+          {view.agenda.length === 0 ? (
             <p className="text-sm text-ink-faint">No agenda items raised this month.</p>
           ) : (
             <ul className="space-y-3">
-              {d.agenda.map((a, i) => (
+              {view.agenda.map((a, i) => (
                 <li key={i} className="flex gap-3">
                   <span className="font-mono text-xs text-primary-ink pt-0.5 tabular-nums shrink-0">
                     {a.count}×
