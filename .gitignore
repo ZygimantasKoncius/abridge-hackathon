@@ -1,0 +1,24 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# local db + data (synthetic seed data is regenerable)
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# env
+.env
+.env*.local
+
+# misc
+.DS_Store
+*.tsbuildinfo
