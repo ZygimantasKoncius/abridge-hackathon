@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getPatientWithEntries, getViewAnalysis } from "@/lib/patient-source";
-import { computeDigest, formatDate } from "@/lib/digest";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { computeDigest, formatDate, type Analysis } from "@/lib/digest";
+import type { Patient } from "@/lib/types";
 import { AnalysisBlock } from "@/components/AnalysisBlock";
 import { RedFlagBanner } from "@/components/RedFlagBanner";
 import { WearOffHistogram } from "@/components/WearOffHistogram";
@@ -9,22 +12,49 @@ import { AsrsGrid } from "@/components/AsrsGrid";
 import { Sparkline } from "@/components/Sparkline";
 import { Card, CardHead, TrendArrow } from "@/components/ui";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+interface DigestResponse {
+  patient: Patient;
+  analysis: Analysis | null;
+}
 
-export default async function PatientDigest({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const patient = getPatientWithEntries(id);
-  if (!patient) notFound();
+export default function PatientDigest() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  // undefined = loading, null = not found
+  const [data, setData] = useState<DigestResponse | null | undefined>(undefined);
 
-  const d = computeDigest(patient);
+  useEffect(() => {
+    if (!id) return;
+    let live = true;
+    fetch(`/api/patients/${id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => live && setData(d))
+      .catch(() => live && setData(null));
+    return () => {
+      live = false;
+    };
+  }, [id]);
+
+  const d = useMemo(() => (data?.patient ? computeDigest(data.patient) : null), [data]);
+
+  if (data === undefined) {
+    return <p className="text-sm text-ink-faint font-mono">Loading digest…</p>;
+  }
+  if (!data || !d) {
+    return (
+      <div>
+        <Link href="/provider" className="text-xs text-ink-muted hover:text-ink">
+          ← All patients
+        </Link>
+        <p className="mt-4 text-sm text-ink-faint">Patient not found.</p>
+      </div>
+    );
+  }
+
+  const patient = data.patient;
   // Override the client rule-based analysis with the cached LLM analysis (§6).
-  const llm = getViewAnalysis(id);
-  if (llm) d.analysis = llm;
+  if (data.analysis) d.analysis = data.analysis;
+
   const first = patient.entries[0]?.date ?? "";
   const last = patient.entries[patient.entries.length - 1]?.date ?? "";
   const observedItems = d.asrs.filter((a) => a.count > 0).length;
