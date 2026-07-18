@@ -15,9 +15,18 @@
  * Needs ANTHROPIC_API_KEY (or an `ant auth login` profile).
  */
 
+import { ANALYSIS_MODEL, analyzeDigest } from "../src/lib/analysis";
 import { getDb } from "../src/lib/db";
+import { computeDigest } from "../src/lib/server-digest";
 import { extractEntry } from "../src/lib/extraction";
-import { insertEntryWithExtraction, upsertPatient } from "../src/lib/queries";
+import {
+  getPatient,
+  getPatientDataSignature,
+  insertEntryWithExtraction,
+  loadDigestEntries,
+  saveAnalysis,
+  upsertPatient,
+} from "../src/lib/queries";
 
 const DAYS = 28;
 const CONCURRENCY = 5;
@@ -247,6 +256,17 @@ async function main() {
   const t0 = Date.now();
   await runPool(jobs);
   console.log(`Done in ${((Date.now() - t0) / 1000).toFixed(1)}s.`);
+
+  // Warm the analysis cache so the provider digest loads instantly on stage.
+  console.log("\nWarming analysis cache…");
+  for (const id of [alex.id, sam.id]) {
+    const p = getPatient(id)!;
+    const digest = computeDigest(p, loadDigestEntries(id));
+    const result = await analyzeDigest(digest);
+    saveAnalysis(id, result, getPatientDataSignature(id), ANALYSIS_MODEL);
+    console.log(`  ✓ ${p.name}: ${result.recommendation_option} — ${result.overview}`);
+  }
+
   console.log(`\nPatient A: ${alex.id}  (main demo — wear-off/sleep story)`);
   console.log(`Patient B: ${sam.id}  (red-flag demo)`);
   console.log(`\nTry:  curl localhost:3000/api/digest/${alex.id} | jq`);

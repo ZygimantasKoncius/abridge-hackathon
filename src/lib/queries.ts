@@ -109,6 +109,59 @@ export function updateExtractionData(
   return getExtractionByEntry(entryId);
 }
 
+// --- cached analysis -----------------------------------------------------
+
+// Cheap signature over a patient's data. Changes when an entry is added or an
+// extraction is corrected (PATCH bumps updated_at) — exactly when the analysis
+// needs regenerating.
+export function getPatientDataSignature(patientId: string): string {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS n,
+              COALESCE(MAX(x.updated_at), '') AS maxu,
+              COALESCE(MAX(e.entry_date), '') AS maxd
+       FROM entries e JOIN extractions x ON x.entry_id = e.id
+       WHERE e.patient_id = ?`,
+    )
+    .get(patientId) as { n: number; maxu: string; maxd: string };
+  return `${row.n}:${row.maxu}:${row.maxd}`;
+}
+
+export interface StoredAnalysis {
+  data: string;
+  signature: string;
+  model: string;
+  computed_at: string;
+}
+
+export function getStoredAnalysis(patientId: string): StoredAnalysis | undefined {
+  return getDb()
+    .prepare("SELECT data, signature, model, computed_at FROM analyses WHERE patient_id = ?")
+    .get(patientId) as StoredAnalysis | undefined;
+}
+
+export function saveAnalysis(
+  patientId: string,
+  data: unknown,
+  signature: string,
+  model: string,
+): void {
+  getDb()
+    .prepare(
+      `INSERT INTO analyses (patient_id, data, signature, model, computed_at)
+       VALUES (@patient_id, @data, @signature, @model, @computed_at)
+       ON CONFLICT(patient_id) DO UPDATE SET
+         data=@data, signature=@signature, model=@model, computed_at=@computed_at`,
+    )
+    .run({
+      patient_id: patientId,
+      data: JSON.stringify(data),
+      signature,
+      model,
+      computed_at: new Date().toISOString(),
+    });
+}
+
 // Loads every extracted entry for a patient, shaped for the digest computation.
 export function loadDigestEntries(patientId: string): DigestEntry[] {
   const rows = getDb()

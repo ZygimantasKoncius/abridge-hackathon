@@ -38,6 +38,17 @@ CREATE TABLE IF NOT EXISTS extractions (
   created_at       TEXT NOT NULL,
   updated_at       TEXT NOT NULL
 );
+
+-- Cached LLM analysis block, one row per patient. Regenerated only when the
+-- underlying data changes (tracked by the signature column), so provider views
+-- serve a cached copy instantly instead of re-paying the ~5-15s Opus call.
+CREATE TABLE IF NOT EXISTS analyses (
+  patient_id  TEXT PRIMARY KEY REFERENCES patients(id) ON DELETE CASCADE,
+  data        TEXT NOT NULL,
+  signature   TEXT NOT NULL,
+  model       TEXT NOT NULL,
+  computed_at TEXT NOT NULL
+);
 `;
 
 let _db: Database.Database | null = null;

@@ -14,7 +14,7 @@ import {
 //
 // One analysis call per digest render (§3).
 
-const MODEL = process.env.ANALYSIS_MODEL ?? "claude-opus-4-8";
+export const ANALYSIS_MODEL = process.env.ANALYSIS_MODEL ?? "claude-opus-4-8";
 
 let _client: Anthropic | null = null;
 function client(): Anthropic {
@@ -104,7 +104,7 @@ export async function analyzeDigest(digest: Digest): Promise<AnalysisResult> {
   const input = buildAnalysisInput(digest);
 
   const response = await client().messages.create({
-    model: MODEL,
+    model: ANALYSIS_MODEL,
     max_tokens: 2000,
     thinking: { type: "adaptive" },
     system: [
