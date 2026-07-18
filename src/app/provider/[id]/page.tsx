@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPatient } from "@/lib/mock-data";
+import { getPatientWithEntries, getViewAnalysis } from "@/lib/patient-source";
 import { computeDigest, formatDate } from "@/lib/digest";
 import { AnalysisBlock } from "@/components/AnalysisBlock";
 import { RedFlagBanner } from "@/components/RedFlagBanner";
@@ -9,9 +9,8 @@ import { AsrsGrid } from "@/components/AsrsGrid";
 import { Sparkline } from "@/components/Sparkline";
 import { Card, CardHead, TrendArrow } from "@/components/ui";
 
-export function generateStaticParams() {
-  return [{ id: "patient-a" }, { id: "patient-b" }];
-}
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export default async function PatientDigest({
   params,
@@ -19,10 +18,13 @@ export default async function PatientDigest({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const patient = getPatient(id);
+  const patient = getPatientWithEntries(id);
   if (!patient) notFound();
 
   const d = computeDigest(patient);
+  // Override the client rule-based analysis with the cached LLM analysis (§6).
+  const llm = getViewAnalysis(id);
+  if (llm) d.analysis = llm;
   const first = patient.entries[0]?.date ?? "";
   const last = patient.entries[patient.entries.length - 1]?.date ?? "";
   const observedItems = d.asrs.filter((a) => a.count > 0).length;

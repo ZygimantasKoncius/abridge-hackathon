@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { PATIENTS } from "@/lib/mock-data";
+import { allPatients } from "@/lib/patient-source";
 import { computeDigest, formatDate, relativeDay } from "@/lib/digest";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export default function ProviderHome() {
-  const rows = PATIENTS.map((p) => {
+  const rows = allPatients().map((p) => {
     const d = computeDigest(p);
     const lastDate = p.entries[p.entries.length - 1]?.date ?? "";
     return {
