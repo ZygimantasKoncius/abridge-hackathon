@@ -7,8 +7,9 @@ questionnaire and surfaces titration-relevant patterns, handing the provider a
 digest where every claim links to a timestamped patient quote.
 
 This branch runs the provider dashboard against deterministic sample data and
-also includes the core backend pipeline (Next.js App Router + SQLite). The
-realtime voice token endpoint (§5b) is deferred.
+also includes the core backend pipeline (Next.js App Router + SQLite), including
+the extraction, digest, and LLM analysis blocks. The realtime voice token mint
+(§5b) remains frontend-only for the hackathon.
 
 ## Architecture
 
@@ -27,6 +28,7 @@ src/
     schema.ts       frozen extraction schema (§4) + JSON Schema for structured output
     constructs.ts   ASRS-18 construct list + red-flag taxonomy + system prompt
     extraction.ts   Claude Opus 4.8 extraction call
+    analysis.ts     Claude Opus 4.8 analysis block (§6) — bounded recommendation, stats in / prose out
     db.ts           SQLite connection + schema
     queries.ts      data access (insert entry+extraction, load digest rows)
     digest.ts       sample-data digest used by the provider dashboard
@@ -72,8 +74,10 @@ extraction pipeline.
 
 ### `GET /api/digest/[pid]`
 Computed 30-day digest: adherence, wear-off histogram, auto-drafted ASRS-18 with
-evidence snippets, sparklines, aggregated agenda, red-flag channel. `analysis` is
-`null` (deferred).
+evidence snippets, sparklines, aggregated agenda, red-flag channel. The
+`analysis` block (overview + bounded "consider discussing X" recommendation,
+§6) is generated at render time by Claude Opus 4.8 from the computed stats
+(stats in, prose out). Pass `?analysis=0` to skip it during dev.
 
 ### `GET /api/patients`
 Provider list: name, last entry, adherence %, red-flag indicator.

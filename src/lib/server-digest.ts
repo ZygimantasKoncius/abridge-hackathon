@@ -97,6 +97,27 @@ export interface RedFlagHit {
   daysAgo: number;
 }
 
+// The render-time LLM analysis block (§6). Defined alongside Digest so the
+// analysis module can consume the computed server digest without a cycle.
+export const RECOMMENDATION_OPTIONS = [
+  "formulation_coverage_change",
+  "dose_timing_shift",
+  "sleep_conversation",
+  "confounder_workup",
+  "side_effect_management",
+  "continue_current_regimen",
+] as const;
+
+export type RecommendationOption = (typeof RECOMMENDATION_OPTIONS)[number];
+
+export interface AnalysisResult {
+  notable: boolean;
+  overview: string;
+  recommendation: string;
+  recommendation_option: RecommendationOption;
+  supporting_stat: string | null;
+}
+
 export interface Digest {
   patient: { id: string; name: string; medication: string | null; dose: string | null };
   window: { days: number; start: string | null; end: string | null; journaledDays: number };
@@ -117,7 +138,8 @@ export interface Digest {
   sparklines: { sleep: SparklinePoint[]; mood: SparklinePoint[]; appetite: SparklinePoint[] };
   agenda: { text: string; date: string }[];
   redFlags: RedFlagHit[];
-  analysis: null; // deferred — overview + recommendation prose slots in here
+  // Populated by the digest route; the pure computation leaves this null.
+  analysis: AnalysisResult | null;
 }
 
 // --- helpers -------------------------------------------------------------
