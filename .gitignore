@@ -20,6 +20,12 @@
 # production
 /build
 
+# local db + data (synthetic seed data is regenerable)
+/data/
+*.db
+*.db-shm
+*.db-wal
+
 # misc
 .DS_Store
 *.pem
