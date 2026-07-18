@@ -1,0 +1,28 @@
+# Local Conductor config for this repo (this machine only).
+# Shared team defaults, if ever needed, belong in a committed .conductor/settings.toml.
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+# node_modules is gitignored, so each new worktree installs its own deps.
+setup = "npm install"
+
+# Next.js binds to a configurable port, and there is no shared DB / fixed port /
+# Docker stack, so multiple workspaces can run their dev servers side by side.
+run_mode = "concurrent"
+
+# Remove the regenerable Next build cache before archiving to reclaim disk.
+archive = "rm -rf .next"
+
+[scripts.run.dev]
+command = "npm run dev -- --port $CONDUCTOR_PORT"
+default = true
+icon = "play"
+
+[scripts.run.preview]
+# Production build + serve, on the workspace's own port.
+command = "npm run build && npm run start -- --port $CONDUCTOR_PORT"
+icon = "rocket"
+
+[scripts.run.typecheck]
+command = "npx tsc --noEmit"
+icon = "braces"

@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/*
+  Design system: "clinical instrument with an audit trail"
+  - Sans  → UI + computed data
+  - Mono  → timestamps + evidence quotes (provenance reads like a receipt)
+  - Serif → LLM-generated narrative (visually marked as *drafted*, not computed)
+  Palette: cool clinical paper, ink text, petrol primary, one reserved alert red.
+*/
+
+@theme {
+  --color-paper: #f4f7f8;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #eef2f4;
+
+  --color-ink: #101619;
+  --color-ink-muted: #5c6a72;
+  --color-ink-faint: #8a97a0;
+
+  --color-line: #dde5e8;
+  --color-line-strong: #c4d0d5;
+
+  --color-primary: #0f5c66;
+  --color-primary-soft: #e2eef0;
+  --color-primary-ink: #0a444c;
+
+  /* directional semantics — muted, never decorative */
+  --color-good: #17795e;
+  --color-warn: #a1560d;
+
+  /* the reserved safety channel — appears nowhere but red flags */
+  --color-alert: #b42318;
+  --color-alert-soft: #fdf1f0;
+  --color-alert-line: #f3c9c4;
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-serif: var(--font-plex-serif), ui-serif, Georgia, serif;
+
+  --radius-card: 10px;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
+}
+
+.tnum {
+  font-feature-settings: "tnum" 1;
+}
+
+/* eyebrow / section label — structural, uppercase mono */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    animation: reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
