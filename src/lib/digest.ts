@@ -97,6 +97,28 @@ export interface RedFlagHit {
   daysAgo: number;
 }
 
+// The render-time LLM analysis block (§6). Defined here (not in analysis.ts) so
+// the Digest type can reference it without a circular import — analysis.ts
+// imports both Digest and AnalysisResult from this module.
+export const RECOMMENDATION_OPTIONS = [
+  "formulation_coverage_change", // IR<->XR, afternoon booster
+  "dose_timing_shift",
+  "sleep_conversation", // hygiene first; sleep-aid discussion if pattern persists
+  "confounder_workup", // sleep, substances, thyroid, stress
+  "side_effect_management",
+  "continue_current_regimen",
+] as const;
+
+export type RecommendationOption = (typeof RECOMMENDATION_OPTIONS)[number];
+
+export interface AnalysisResult {
+  notable: boolean;
+  overview: string; // <= 2 sentences, or "No significant changes since last visit."
+  recommendation: string; // one-line "consider discussing X" prompt
+  recommendation_option: RecommendationOption;
+  supporting_stat: string | null;
+}
+
 export interface Digest {
   patient: { id: string; name: string; medication: string | null; dose: string | null };
   window: { days: number; start: string | null; end: string | null; journaledDays: number };
@@ -117,7 +139,9 @@ export interface Digest {
   sparklines: { sleep: SparklinePoint[]; mood: SparklinePoint[]; appetite: SparklinePoint[] };
   agenda: { text: string; date: string }[];
   redFlags: RedFlagHit[];
-  analysis: null; // deferred — overview + recommendation prose slots in here
+  // Populated by the digest route via analyzeDigest(); computeDigest() leaves it
+  // null so the pure digest math has no LLM dependency (patient-list reuses it).
+  analysis: AnalysisResult | null;
 }
 
 // --- helpers -------------------------------------------------------------
