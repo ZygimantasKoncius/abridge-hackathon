@@ -44,12 +44,18 @@ export const EXTRACTION_SCHEMA = {
     wear_off_time: { type: ["string", "null"] },
     crash_reported: { type: ["boolean", "null"] },
     sleep_hours: { type: ["number", "null"] },
-    sleep_quality: { type: ["string", "null"], enum: ["good", "fair", "poor", null] },
+    // Nullable enums must use anyOf — a `type: [...]` array combined with `enum`
+    // is rejected by the structured-outputs validator.
+    sleep_quality: {
+      anyOf: [{ type: "string", enum: ["good", "fair", "poor"] }, { type: "null" }],
+    },
     appetite: {
       type: ["object", "null"],
       additionalProperties: false,
       properties: {
-        status: { type: ["string", "null"], enum: ["normal", "reduced", "increased", null] },
+        status: {
+          anyOf: [{ type: "string", enum: ["normal", "reduced", "increased"] }, { type: "null" }],
+        },
         evidence: { type: ["string", "null"] },
       },
       required: ["status", "evidence"],
